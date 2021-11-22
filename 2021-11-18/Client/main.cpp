@@ -31,7 +31,7 @@ int main()
 
 	memset(&serverAddr, 0, sizeof(serverAddr));
 	serverAddr.sin_family = AF_INET;
-	serverAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+	serverAddr.sin_addr.s_addr = inet_addr("127.0.0.1");//해당 IP주소는 무조건 내 랜카드의 주소다.
 	serverAddr.sin_port = htons(9190);
 
 	//3. connect
@@ -41,19 +41,32 @@ int main()
 		exit(-1);
 	}
 
-
-	//4. recv recive
-	char message[1024] = { 0, };
-	int recvLength = recv(hServerSocket, message, sizeof(message), 0);
-	if (recvLength == -1)
+	while(1)
 	{
-		cout << "error recv" << endl;
-		exit(-1);
+		char message[1024] = { 0, };
+		cout << "서버로 보낼 내용 :";
+		cin >> message;
+
+		send(hServerSocket, message, strlen(message) + 1, 0);
+
+
+	
+		/*char message2[] = "\r"; //개행 문자를 요청 신호로 받아들인다.
+		send(hServerSocket, message2, sizeof(message2), 0);*/
+
+
+		//4. recv recive
+		int recvLength = recv(hServerSocket, message, sizeof(message), 0);
+		if (recvLength == -1)//서버와 접속 끊김. 
+		{
+			cout << "error recv" << endl;
+			exit(-1);
+		}
+
+		cout << message << endl;
 	}
 
-	cout << message << endl;
-
-	closesocket(hServerSocket);
+	closesocket(hServerSocket);//클라이언트의 서버 소켓 닫기.
 
 	WSACleanup();
 
