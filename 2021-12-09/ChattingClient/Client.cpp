@@ -77,12 +77,10 @@ unsigned __stdcall Input(void* arg)
 	while (1)
 	{
 		char message[1024] = "";
-		printf("input : ");
 		cin >> message;
 
 		send(*(SOCKET*)arg, message, strlen(message), 0);
 
-		Sleep(100);
 	}
 	
 	return 0;
@@ -101,8 +99,6 @@ unsigned __stdcall Output(void* arg)
 
 		cout << message2 << endl;
 
-
-		Sleep(100);
 	}
 	
 	return 0;

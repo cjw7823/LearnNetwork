@@ -1,26 +1,42 @@
 #define  _CRT_SECURE_NO_WARNINGS
 
 #include <stdio.h>
+#include <iostream>
 #include <WinSock2.h>
+#include <process.h>
+#include <vector>
 
 #pragma comment(lib, "ws2_32.lib")
 
-unsigned WINAPI ThreadIncrease(void* arg);
-unsigned WINAPI ThreadDecrease(void* arg);
+using namespace std;
 
-int main()
+unsigned WINAPI ServerSocketAccept(void* arg);
+unsigned WINAPI Broadcasting(void* arg);
+
+CRITICAL_SECTION cs;
+
+struct SocketData
 {
-	SOCKET ServerSocket;
-	SOCKET ClientSocket;
 
+	SOCKET ServerSocket;
 	SOCKADDR_IN ServerAddr;
 	SOCKADDR_IN ClientAddr;
 
-	fd_set Reads;
-	fd_set Copys;
+};
 
+vector<SOCKET> vClientSocket;
+
+int main()
+{
+	SOCKET ClientSocket;
+
+	SocketData SocketData;
 
 	WSAData wsaData;
+
+	HANDLE ThreadHandle[20];
+	unsigned int threadID;
+	InitializeCriticalSection(&cs);
 
 	int Result = WSAStartup(MAKEWORD(2, 2), &wsaData);
 	if (Result != 0)
@@ -29,94 +45,71 @@ int main()
 		exit(-1);
 	}
 
-	ServerSocket = socket(AF_INET, SOCK_STREAM, 0);
-	if (ServerSocket == INVALID_SOCKET)
+	SocketData.ServerSocket = socket(AF_INET, SOCK_STREAM, 0);
+	if (SocketData.ServerSocket == INVALID_SOCKET)
 	{
 		printf("socket");
 		exit(-1);
 	}
 
-	FD_ZERO(&Reads);
-	FD_SET(ServerSocket, &Reads);
+	memset(&SocketData.ServerAddr, 0, sizeof(SOCKADDR_IN));
+	SocketData.ServerAddr.sin_family = PF_INET;
+	SocketData.ServerAddr.sin_port = htons(12345);
+	SocketData.ServerAddr.sin_addr.s_addr = INADDR_ANY;
 
-	memset(&ServerAddr, 0, sizeof(SOCKADDR_IN));
-	ServerAddr.sin_family = PF_INET; //IP V4
-	ServerAddr.sin_port = htons(12345);
-	ServerAddr.sin_addr.s_addr = INADDR_ANY; //아무거나
+	bind(SocketData.ServerSocket, (SOCKADDR*)&SocketData.ServerAddr, sizeof(SocketData.ServerAddr));
 
-	bind(ServerSocket, (SOCKADDR*)&ServerAddr, sizeof(ServerAddr));
-
-	listen(ServerSocket, 5);
-
-	TIMEVAL timeout;
-	timeout.tv_sec = 0;
-	timeout.tv_usec = 100;
+	listen(SocketData.ServerSocket, 5);
 
 	printf("Server\n");
 
 	while (1)
 	{
-		Copys = Reads;
-
-		int fd_num = select(0, &Copys, 0, 0, &timeout);
-		if (fd_num == SOCKET_ERROR)
+		int clientAddrSize = sizeof(SocketData.ClientAddr);
+		EnterCriticalSection(&cs);
+		vClientSocket.push_back(ClientSocket=accept(SocketData.ServerSocket, (SOCKADDR*)&SocketData.ClientAddr, &clientAddrSize));
+		if (vClientSocket.back() == SOCKET_ERROR)
 		{
-			break;
+			cout << "error accept" << endl;
+			exit(-1);
 		}
-
-		if (fd_num == 0)
+		else
 		{
-			continue;
-			//다른 서버 로직
+			ThreadHandle[(vClientSocket.size()) - 1] = (HANDLE)_beginthreadex(NULL, 0, Broadcasting, (void*)&ClientSocket, 0, &threadID);
 		}
-
-		for (unsigned int i = 0; i < Reads.fd_count; ++i)
-		{
-			//이벤트가 일어나면 처리
-			if (FD_ISSET(Reads.fd_array[i], &Copys))
-			{
-				if (Reads.fd_array[i] == ServerSocket)
-				{
-					int ClientAddrLength = sizeof(ClientAddr);
-					ClientSocket = accept(ServerSocket, (SOCKADDR*)&ClientAddr, &ClientAddrLength);
-					FD_SET(ClientSocket, &Reads);
-					printf("connection client : %d\n", ClientSocket);
-				}
-				else
-				{
-					//클라이언트 데이터 처리
-					char Buffer[1024] = { 0, };
-					int RecvLength = 0;
-					RecvLength = recv(Reads.fd_array[i], Buffer, sizeof(Buffer), 0);
-					if (RecvLength == 0)
-					{
-						//close connection
-						FD_CLR(Reads.fd_array[i], &Reads);
-						closesocket(Reads.fd_array[i]);
-						printf("close connection : %d\n", Reads.fd_array[i]);
-					}
-					else
-					{
-						for (unsigned int j = 0; j < Reads.fd_count; j++)
-						{
-							if (Reads.fd_array[j] != ServerSocket)
-							{
-								if (Reads.fd_array[j] != Reads.fd_array[i])
-								{
-									send(Reads.fd_array[j], Buffer, RecvLength, 0);
-								}
-							}
-						}
-
-					}
-				}
-			}
-		}
+		LeaveCriticalSection(&cs);
 	}
 
-	closesocket(ServerSocket);
+	WaitForMultipleObjects(20, ThreadHandle, TRUE, INFINITE);
+	DeleteCriticalSection(&cs);
+
+	closesocket(SocketData.ServerSocket);
 
 	WSACleanup();
+
+	return 0;
+}
+
+unsigned __stdcall Broadcasting(void* arg)
+{
+	while (1)
+	{
+		char message[1024] = { 0, };
+		if ( ( recv( *(SOCKET*)arg, message, sizeof(message), 0)) == 0)
+		{
+			closesocket(*(SOCKET*)arg);
+			cout << "CloseSocket" << endl;
+		}
+		else
+		{
+			cout << message << endl;
+			for (unsigned int i = 0; i < vClientSocket.size(); i++)
+			{
+					send(vClientSocket.at(i), message, strlen(message) + 1, 0);
+			}
+		}
+
+	}
 
 	return 0;
 }
