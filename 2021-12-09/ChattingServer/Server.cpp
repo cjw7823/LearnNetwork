@@ -1,6 +1,5 @@
 #define  _CRT_SECURE_NO_WARNINGS
 
-#include <stdio.h>
 #include <iostream>
 #include <WinSock2.h>
 #include <process.h>
@@ -10,80 +9,61 @@
 
 using namespace std;
 
-unsigned WINAPI ServerSocketAccept(void* arg);
 unsigned WINAPI Broadcasting(void* arg);
 
 CRITICAL_SECTION cs;
-
-struct SocketData
-{
-
-	SOCKET ServerSocket;
-	SOCKADDR_IN ServerAddr;
-	SOCKADDR_IN ClientAddr;
-
-};
 
 vector<SOCKET> vClientSocket;
 
 int main()
 {
+	cout << "Server" << endl;
+	SOCKET ServerSocket;
+	SOCKADDR_IN ServerADDR;
+
 	SOCKET ClientSocket;
+	SOCKADDR_IN ClientADDR;
 
-	SocketData SocketData;
-
-	WSAData wsaData;
-
-	HANDLE ThreadHandle[20];
-	unsigned int threadID;
 	InitializeCriticalSection(&cs);
 
-	int Result = WSAStartup(MAKEWORD(2, 2), &wsaData);
-	if (Result != 0)
+	WSAData WsaData;
+
+	//Initailize Winsock 
+	if (WSAStartup(MAKEWORD(2, 2), &WsaData) != 0)
 	{
-		printf("WSAStartup");
+		cout << "error WSAStartup" << endl;
 		exit(-1);
 	}
 
-	SocketData.ServerSocket = socket(AF_INET, SOCK_STREAM, 0);
-	if (SocketData.ServerSocket == INVALID_SOCKET)
+	//서버 주소 구조체 초기화
+	memset(&ServerADDR, 0, sizeof(ServerADDR));
+	ServerADDR.sin_family = AF_INET;
+	ServerADDR.sin_addr.s_addr = INADDR_ANY;
+	ServerADDR.sin_port = htons(12345);
+
+	ServerSocket = socket(PF_INET, SOCK_STREAM, 0);
+
+	bind(ServerSocket, (SOCKADDR*)&ServerADDR, sizeof(ServerADDR));
+
+	listen(ServerSocket, 5);
+
+	while (true)
 	{
-		printf("socket");
-		exit(-1);
-	}
-
-	memset(&SocketData.ServerAddr, 0, sizeof(SOCKADDR_IN));
-	SocketData.ServerAddr.sin_family = PF_INET;
-	SocketData.ServerAddr.sin_port = htons(12345);
-	SocketData.ServerAddr.sin_addr.s_addr = INADDR_ANY;
-
-	bind(SocketData.ServerSocket, (SOCKADDR*)&SocketData.ServerAddr, sizeof(SocketData.ServerAddr));
-
-	listen(SocketData.ServerSocket, 5);
-
-	printf("Server\n");
-
-	while (1)
-	{
-		int clientAddrSize = sizeof(SocketData.ClientAddr);
+		int ClientAddrSize = sizeof(ClientADDR);
+		ClientSocket = accept(ServerSocket, (SOCKADDR*)&ClientADDR, &ClientAddrSize);
+		cout << "Connect : " << ClientSocket << endl;
+		//ClientSocket을 기록
 		EnterCriticalSection(&cs);
-		vClientSocket.push_back(ClientSocket=accept(SocketData.ServerSocket, (SOCKADDR*)&SocketData.ClientAddr, &clientAddrSize));
-		if (vClientSocket.back() == SOCKET_ERROR)
-		{
-			cout << "error accept" << endl;
-			exit(-1);
-		}
-		else
-		{
-			ThreadHandle[(vClientSocket.size()) - 1] = (HANDLE)_beginthreadex(NULL, 0, Broadcasting, (void*)&ClientSocket, 0, &threadID);
-		}
+		vClientSocket.push_back(ClientSocket);
 		LeaveCriticalSection(&cs);
+		//worker thread
+		HANDLE ThreadHandle = (HANDLE)_beginthreadex(NULL, 0, Broadcasting, (void*)&ClientSocket, 0, NULL);
+		//ClientSocket 데이터 처리, recv, send(Thread)
 	}
 
-	WaitForMultipleObjects(20, ThreadHandle, TRUE, INFINITE);
-	DeleteCriticalSection(&cs);
+	closesocket(ServerSocket);
 
-	closesocket(SocketData.ServerSocket);
+	DeleteCriticalSection(&cs);
 
 	WSACleanup();
 
@@ -92,23 +72,37 @@ int main()
 
 unsigned __stdcall Broadcasting(void* arg)
 {
-	while (1)
+	SOCKET ClientSocket = *(SOCKET*)arg;
+	char Buffer[1024] = { 0, };
+
+	while (true)
 	{
-		char message[1024] = { 0, };
-		if ( ( recv( *(SOCKET*)arg, message, sizeof(message), 0)) == 0)
+		int RecvLength = recv(ClientSocket, Buffer, sizeof(Buffer), 0);
+		if (RecvLength <= 0)
 		{
-			closesocket(*(SOCKET*)arg);
-			cout << "CloseSocket" << endl;
+			//연결이 끊겼을때
+			closesocket(ClientSocket);
+			EnterCriticalSection(&cs);
+			for (auto iter = vClientSocket.begin(); iter != vClientSocket.end(); ++iter)
+			{
+				if (*iter == ClientSocket)
+				{
+					vClientSocket.erase(iter);
+					cout << "CloseSocket : " << ClientSocket << endl;
+					break;
+				}
+			}
+			LeaveCriticalSection(&cs);
 		}
 		else
 		{
-			cout << message << endl;
-			for (unsigned int i = 0; i < vClientSocket.size(); i++)
+			EnterCriticalSection(&cs);
+			for (auto iter = vClientSocket.begin(); iter != vClientSocket.end(); ++iter)
 			{
-					send(vClientSocket.at(i), message, strlen(message) + 1, 0);
+				send(*iter, Buffer, strlen(Buffer), 0);
 			}
+			LeaveCriticalSection(&cs);
 		}
-
 	}
 
 	return 0;
