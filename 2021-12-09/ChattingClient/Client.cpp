@@ -25,12 +25,10 @@ int main()
 
 	SOCKET hServerSocket;
 
-	struct hostent* host;
-
 	cout << "<Client>" << endl;
 
 	cout << "사용할 ID를 입력하세요.\n" << endl;
-	cin >> ClientID;
+	getline(cin, ClientID);
 	cout <<"--------------------" << endl;
 
 	//1.Winsock 초기화
@@ -48,19 +46,12 @@ int main()
 		exit(-1);
 	}
 
-	char domain[] = "work.junios.net";
-	//printf("도메인을 입력하세요.\n");
-	//cin >> domain;
-
-	host = gethostbyname(domain);
-
-
 	char a[1024] = { 0, };
 
-	memset(&Addr, 0, sizeof(Addr));
-	Addr.sin_family = AF_INET;
-	Addr.sin_addr.s_addr = inet_addr(inet_ntoa(*(IN_ADDR*)host->h_addr_list[0]));
-	Addr.sin_port = htons(6666);
+	memset(&serverAddr, 0, sizeof(serverAddr));
+	serverAddr.sin_family = AF_INET;
+	serverAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+	serverAddr.sin_port = htons(12345);
 
 	if (connect(hServerSocket, (SOCKADDR*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR)
 	{
@@ -92,18 +83,15 @@ int main()
 unsigned __stdcall Input(void* arg)
 {
 	string input="";
-	char Buffer[1024] = { 0, };
+	const char* Buffer;
 
 	while (1)
 	{
-		cin >> input;
+		getline(cin, input);
 
 		input = ClientID + " : " + input;
 
-		for (unsigned int i = 0; i < input.size(); i++)
-		{
-			Buffer[i] = input.at(i);
-		}
+		Buffer = input.c_str();
 
 		SOCKET hServerSocket = *(SOCKET*)arg;
 		send(hServerSocket, Buffer, strlen(Buffer) + 1, 0);

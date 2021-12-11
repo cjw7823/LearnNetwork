@@ -99,7 +99,7 @@ unsigned __stdcall Broadcasting(void* arg)
 			EnterCriticalSection(&cs);
 			for (auto iter = vClientSocket.begin(); iter != vClientSocket.end(); ++iter)
 			{
-				send(*iter, Buffer, strlen(Buffer), 0);
+				send(*iter, Buffer, strlen(Buffer)+1, 0);
 			}
 			LeaveCriticalSection(&cs);
 		}
