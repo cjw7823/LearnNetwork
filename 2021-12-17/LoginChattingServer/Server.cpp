@@ -120,14 +120,39 @@ unsigned __stdcall Broadcasting(void* arg)
 
 		cout << "로그인 체크중.." << endl;
 		recv(ClientSocket, userID, sizeof(userID), 0);
+		cout << "ID Recived  "<< userID << endl;
 		recv(ClientSocket, userPW, sizeof(userPW), 0);
+		cout << "PW Recived  " << userPW << endl;
 
-		
+		preparedstatement = connection->prepareStatement("select* from member where user_id = ?");//limit(어디서부터)(몇개 가져와라)
+		preparedstatement->setString(1, userID);
+		preparedstatement->execute();
+		resultset = preparedstatement->getResultSet();
 
+		for (unsigned int i = 0; i < resultset->rowsCount(); i++)
+		{
+			resultset->next();
+			if (userPW == resultset->getString(3))//아이디 찾기
+			{
+				cout << "축하" << endl;
+				strcpy(checklogin, "Success");
+				send(ClientSocket, checklogin, strlen(checklogin) + 1, 0);
+				break;
+			}
+		}
+		if (checklogin[0] == 'S')
+		{
+			break;
+			
+		}
+		else
+		{
+			cout << "로그인 실패" << endl;
+			strcpy(checklogin, "failed");
+			send(ClientSocket, checklogin, strlen(checklogin) + 1, 0);
+			continue;
+		}
 	}
-
-
-
 
 
 	while (true)
@@ -154,7 +179,10 @@ unsigned __stdcall Broadcasting(void* arg)
 			EnterCriticalSection(&cs);
 			for (auto iter = vClientSocket.begin(); iter != vClientSocket.end(); ++iter)
 			{
-				send(*iter, Buffer, strlen(Buffer)+1, 0);
+				if (*iter != ClientSocket)
+				{
+					send(*iter, Buffer, strlen(Buffer) + 1, 0);
+				}
 			}
 			LeaveCriticalSection(&cs);
 		}

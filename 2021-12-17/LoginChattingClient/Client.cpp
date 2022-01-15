@@ -65,10 +65,10 @@ int main()
 
 		cout << "로그인 ID 입력 : ";
 		cin >> userID;
+		send(hServerSocket, userID, strlen(userID) + 1, 0);
+
 		cout << "로그인 PW 입력 : ";
 		cin >> userPW;
-
-		send(hServerSocket, userID, strlen(userID) + 1, 0);
 		send(hServerSocket, userPW, strlen(userPW) + 1, 0);
 
 		cout << "로그인 확인중..." << endl;
@@ -79,16 +79,23 @@ int main()
 			cout << "서버 종료" << endl;
 			exit(-1);
 		}
-		else if (checklogin == "성공");
+		else if (checklogin[0] == 'S')
 		{
 			cout << "로그인 성공" << endl;
 			break;
 		}
+		else
+		{
+			cout << "로그인 실패" << endl;
+		}
+
 	}
 
 
-	cout << "사용할 NickName를 입력하세요.\n" << endl;
-	getline(cin, NickName);
+	cout << "사용할 NickName를 입력하세요." << endl;
+	
+	cin >> NickName;
+
 	cout << "--------------------" << endl;
 
 	HANDLE ThreadHandle = (HANDLE)_beginthreadex(NULL, 0, Input, (void*)&hServerSocket, 0, NULL);
@@ -114,6 +121,7 @@ int main()
 
 unsigned __stdcall Input(void* arg)
 {
+	SOCKET hServerSocket = *(SOCKET*)arg;
 	string input="";
 	const char* Buffer;
 
@@ -124,8 +132,7 @@ unsigned __stdcall Input(void* arg)
 		input = NickName + " : " + input;
 
 		Buffer = input.c_str();
-
-		SOCKET hServerSocket = *(SOCKET*)arg;
+			
 		send(hServerSocket, Buffer, strlen(Buffer) + 1, 0);
 	}
 
