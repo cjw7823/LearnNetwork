@@ -16,6 +16,7 @@ int main(int args, char* argv[])
 	if (WSAStartup(MAKEWORD(2, 2), &wsaData))//성공하면 0 반환.
 	{
 		std::cout << "WSAStartup() Failed" << std::endl;
+		WSACleanup();
 		return 0;
 	}
 
@@ -27,6 +28,7 @@ int main(int args, char* argv[])
 	if (h_Socket == INVALID_SOCKET)//소켓 생성 실패 시.
 	{
 		std::cout << "socket() Failed" << std::endl;
+		closesocket(h_Socket);
 		WSACleanup();
 		return 0;
 	}

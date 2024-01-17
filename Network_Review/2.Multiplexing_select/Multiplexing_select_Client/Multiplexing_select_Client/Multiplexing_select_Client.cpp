@@ -30,6 +30,7 @@ int main(int argc, char* argv[])
 	if (WSAStartup(MAKEWORD(2, 2), &wsaData))
 	{
 		std::cout << "WSAStartup() Failed" << std::endl;
+		WSACleanup();
 		return 0;
 	}
 

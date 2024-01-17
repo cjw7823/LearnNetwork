@@ -12,6 +12,7 @@ int main(int argc, char* argv[])
 	if (WSAStartup(MAKEWORD(2, 2), &wsaData))
 	{
 		std::cout << "WSAStartup() Failed" << std::endl;
+		WSACleanup();
 		return 0;
 	}
 
@@ -80,7 +81,7 @@ int main(int argc, char* argv[])
 				if (Reads.fd_array[i] == h_ServerSocket)
 				{
 					int ClientAddrLength = sizeof(addrClient);
-					h_ClientSocket = accept(h_ServerSocket, (SOCKADDR*)&addrClient, &ClientAddrLength);
+					h_ClientSocket = accept(h_ServerSocket, (SOCKADDR*)&addrClient, &ClientAddrLength);//성공한다 가정. 예외처리 제외.
 					FD_SET(h_ClientSocket, &Reads);
 					printf("connection client : %d\n", h_ClientSocket);
 				}
