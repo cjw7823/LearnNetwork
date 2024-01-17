@@ -6,7 +6,7 @@
 
 int main(int argc, char* argv[])
 {
-	std::cout << "<Server>" << std::endl;
+	std::cout << "<Multiplexing Server>" << std::endl;
 
 	WSADATA wsaData = { 0, };
 	if (WSAStartup(MAKEWORD(2, 2), &wsaData))
