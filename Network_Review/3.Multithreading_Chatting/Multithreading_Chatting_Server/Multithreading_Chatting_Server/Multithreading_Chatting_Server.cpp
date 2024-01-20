@@ -5,19 +5,24 @@
 
 #pragma comment(lib, "ws2_32.lib")
 
-/* Àü¿ª º¯¼ö */
+/* ì „ì—­ ë³€ìˆ˜ */
 CRITICAL_SECTION g_cs;
-std::list<SOCKET> g_socketList;	// ÇØ´ç ¸®½ºÆ®´Â CRITICAL_SECTIONÀ¸·Î ¿øÀÚ¼ºÀ» º¸ÀåÇÏµµ·Ï ÇÑ´Ù.
+std::list<SOCKET> g_socketList;	// í•´ë‹¹ ë¦¬ìŠ¤íŠ¸ëŠ” CRITICAL_SECTIONìœ¼ë¡œ ì›ìì„±ì„ ë³´ì¥í•˜ë„ë¡ í•œë‹¤.
+std::list<HANDLE> g_subThreadList;//ì„œë¸Œ ìŠ¤ë ˆë“œ ì¢…ë£Œ í™•ì¸ìš© ë¦¬ìŠ¤íŠ¸.
 SOCKET g_serverSocket;
 
 BOOL CtrlHandler(DWORD dwType)
 {
+	/*
+		ëª¨ë“  ì†Œì¼“ ì¢…ë£Œ
+	*/
 	if (dwType == CTRL_C_EVENT)
 	{
 		closesocket(g_serverSocket);
 
 		EnterCriticalSection(&g_cs);
-
+		for (auto it = g_socketList.begin(); it != g_socketList.end(); it++)
+			closesocket(*it);
 		LeaveCriticalSection(&g_cs);
 
 		return TRUE;
@@ -29,17 +34,18 @@ BOOL CtrlHandler(DWORD dwType)
 DWORD WINAPI ThreadFunction(LPVOID param)
 {
 	SOCKET h_clientSocket = (SOCKET)param;
-	std::cout << "Å¬¶óÀÌ¾ğÆ® Á¢¼Ó : " << h_clientSocket << std::endl;
+	printf("í´ë¼ì´ì–¸íŠ¸ ì ‘ì† : %llu \n", h_clientSocket);
+	//std::cout << "í´ë¼ì´ì–¸íŠ¸ ì ‘ì† : " << h_clientSocket << std::endl;
 
 	char buffer[1024] = { 0, };
 	while (recv(h_clientSocket, buffer, sizeof(buffer), 0) >= 0)
 	{
-		//¸ğµç Å¬¶óÀÌ¾ğÆ®¿¡ ¸Ş¼¼Áö Àü¼Û
+		//ëª¨ë“  í´ë¼ì´ì–¸íŠ¸ì— ë©”ì„¸ì§€ ì „ì†¡
 		int len = strlen(buffer);
 		EnterCriticalSection(&g_cs);
 		for (auto it = g_socketList.begin(); it != g_socketList.end(); it++)
 		{
-			if(*it != h_clientSocket)//¸Ş¼¼Áö¸¦ Àü¼ÛÇÑ Å¬¶óÀÌ¾ğÆ®´Â Á¦¿Ü.
+			//if(*it != h_clientSocket)//ë©”ì„¸ì§€ë¥¼ ì „ì†¡í•œ í´ë¼ì´ì–¸íŠ¸ëŠ” ì œì™¸.
 				send(*it, buffer, sizeof(char) * (len + 1), 0);
 		}
 		LeaveCriticalSection(&g_cs);
@@ -49,15 +55,18 @@ DWORD WINAPI ThreadFunction(LPVOID param)
 
 	EnterCriticalSection(&g_cs);
 	g_socketList.remove(h_clientSocket);
+	HANDLE hThread = GetCurrentThread();
+	g_subThreadList.remove(hThread);
 	LeaveCriticalSection(&g_cs);
-	std::cout << "Å¬¶óÀÌ¾ğÆ® Á¢¼Ó ÇØÁ¦ : " << h_clientSocket << std::endl;
+	printf("í´ë¼ì´ì–¸íŠ¸ ì ‘ì† í•´ì œ : %llu \n", h_clientSocket);
+	//std::cout << "í´ë¼ì´ì–¸íŠ¸ ì ‘ì† í•´ì œ : " << h_clientSocket << std::endl;
 	return 0;
 }
 
 int main(int argc, char* argv[])
 {
 	std::cout << "<MultiThread Chatting Server>" << std::endl;
-	std::cout << "Ctrl + C ¸¦ ´©¸£¸é ¼­¹ö¸¦ Á¾·áÇÕ´Ï´Ù." << std::endl;
+	std::cout << "Ctrl + C ë¥¼ ëˆ„ë¥´ë©´ ì„œë²„ë¥¼ ì¢…ë£Œí•©ë‹ˆë‹¤." << std::endl;
 
 	WSADATA wsaData = { 0, };
 	if (WSAStartup(MAKEWORD(2, 2), &wsaData))
@@ -67,13 +76,12 @@ int main(int argc, char* argv[])
 		return 0;
 	}
 
-	SOCKET h_ServerSocket;
 	SOCKET h_ClientSocket;
-	h_ServerSocket = socket(AF_INET, SOCK_STREAM, 0);
-	if (h_ServerSocket == INVALID_SOCKET)
+	g_serverSocket = socket(AF_INET, SOCK_STREAM, 0);
+	if (g_serverSocket == INVALID_SOCKET)
 	{
 		std::cout << "socket() Failed" << std::endl;
-		closesocket(h_ServerSocket);
+		closesocket(g_serverSocket);
 		WSACleanup();
 		return 0;
 	}
@@ -84,46 +92,69 @@ int main(int argc, char* argv[])
 	addrServer.sin_family = AF_INET;
 	addrServer.sin_port = htons(8080);
 	inet_pton(AF_INET, "127.0.0.1", &addrServer.sin_addr);
-	if (bind(h_ServerSocket, (sockaddr*)&addrServer, sizeof(addrServer)))
+	if (bind(g_serverSocket, (sockaddr*)&addrServer, sizeof(addrServer)))
 	{
 		std::cout << "bind() Failed" << std::endl;
-		closesocket(h_ServerSocket);
+		closesocket(g_serverSocket);
 		WSACleanup();
 		return 0;
 	}
-	if (listen(h_ServerSocket, SOMAXCONN))
+	if (listen(g_serverSocket, SOMAXCONN))
 	{
 		std::cout << "listen() Failed" << std::endl;
-		closesocket(h_ServerSocket);
+		closesocket(g_serverSocket);
 		WSACleanup();
 		return 0;
 	}
 
-	//ÀÓ°è¿µ¿ª °´Ã¼ »ı¼º.
+	//ì„ê³„ì˜ì—­ ê°ì²´ ìƒì„±.
 	InitializeCriticalSection(&g_cs);
 
-	//¼­¹öÁ¾·á ÀÌº¥Æ® µî·Ï.
+	//ì„œë²„ì¢…ë£Œ ì´ë²¤íŠ¸ ë“±ë¡.
 	if (!SetConsoleCtrlHandler(CtrlHandler, TRUE))
 		puts("SetConsoleCtrlHandler() Failed");
 
-	while ((h_ClientSocket = accept(h_ServerSocket, (sockaddr*)&addrClient, &addr_len)) != INVALID_SOCKET)
+	while ((h_ClientSocket = accept(g_serverSocket, (sockaddr*)&addrClient, &addr_len)) != INVALID_SOCKET)
 	{
+		HANDLE h_thread = CreateThread(
+			NULL,					//ë³´ì•ˆ ì†ì„±
+			0,						//ìŠ¤íƒ ë©”ëª¨ë¦¬ í¬ê¸°
+			ThreadFunction,			//í•¨ìˆ˜
+			(LPVOID)h_ClientSocket,	//ë§¤ê°œ ë³€ìˆ˜
+			0,						//ìƒì„± í”Œë ˆê·¸
+			NULL					//ìŠ¤ë ˆë“œ ID
+		);
+
 		EnterCriticalSection(&g_cs);
 		g_socketList.push_back(h_ClientSocket);
+		g_subThreadList.push_back(h_thread);
 		LeaveCriticalSection(&g_cs);
-
-		CreateThread(
-			NULL,					//º¸¾È ¼Ó¼º
-			0,						//½ºÅÃ ¸Ş¸ğ¸® Å©±â
-			ThreadFunction,			//ÇÔ¼ö
-			(LPVOID)h_ClientSocket,	//¸Å°³ º¯¼ö
-			0,						//»ı¼º ÇÃ·¹±×
-			NULL					//½º·¹µå ID
-		);
 	}
 
-	closesocket(h_ServerSocket);
-	closesocket(h_ClientSocket);
+	std::cout << "ì„œë¸Œ ìŠ¤ë ˆë“œ ì¢…ë£Œì¤‘...\n";
+
+	bool allThread_is_End = true;
+	while (allThread_is_End)
+	{
+		for (auto it = g_subThreadList.begin(); it != g_subThreadList.end(); it++)
+		{
+			DWORD exitCode;
+			if (GetExitCodeThread(*it, &exitCode))
+			{
+				allThread_is_End = false;
+				if (exitCode == STILL_ACTIVE)
+				{
+					allThread_is_End = true;
+					Sleep(100);
+					break;
+				}
+			}
+		}
+	}
+
+	std::cout << "ì„œë²„ ì¢…ë£Œ.\n";
+
+	DeleteCriticalSection(&g_cs);
 	WSACleanup();
 
 	return 0;
