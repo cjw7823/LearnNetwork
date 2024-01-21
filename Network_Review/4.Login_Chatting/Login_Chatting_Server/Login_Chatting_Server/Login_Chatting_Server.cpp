@@ -1,3 +1,11 @@
+/*
+	Release 모드로 실행하세요.
+
+	MySQL c++ Connector 라이브러리의 Debug 파일이 100MB를 넘습니다.
+	Git LFS 사용제한을 위해 Release모드로 작성합니다.
+*/
+
+
 #include <iostream>
 
 #include "jdbc/mysql_connection.h"
@@ -13,6 +21,7 @@
 #pragma comment(lib, "vs14/debug/mysqlcppconn-static.lib")
 #else
 #pragma comment(lib, "vs14/mysqlcppconn.lib")
+#pragma comment(lib, "vs14/mysqlcppconn-static.lib")
 #endif
 
 using namespace std;
