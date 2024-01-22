@@ -12,7 +12,6 @@ DWORD WINAPI ThreadFunction(LPVOID param)
 	//무한 send
 	while (1)
 	{
-		
 		std::string str;
 		getline(std::cin, str);
 		if (str == "EXIT")
