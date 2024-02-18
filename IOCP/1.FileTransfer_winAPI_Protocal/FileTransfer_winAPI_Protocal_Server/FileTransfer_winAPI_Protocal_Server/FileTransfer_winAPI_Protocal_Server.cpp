@@ -116,7 +116,7 @@ void SendFile(SOCKET hClient, int index)
 		//오류 정보를 클라이언트에게 전송.
 		send(hClient, (const char*)&cmd, sizeof(cmd), 0);
 		send(hClient, (const char*)&err, sizeof(err), 0);
-		ErrorHandler("전송할 파일을 개방할 수 없습니다.");
+		ErrorHandler("전송할 파일을 개방할 수 없습니다.", hClient, NULL, hFile);
 	}
 
 	//전송할 파일에 대한 정보를 작성한다.
@@ -154,7 +154,7 @@ void SendFile(SOCKET hClient, int index)
 		&tfb,		//파일 전송에 앞,뒤로 전송할 데이터.
 		0			//기타 옵션.
 	) == FALSE)
-		ErrorHandler("파일을 전송할 수 없습니다.");
+		ErrorHandler("파일을 전송할 수 없습니다.", hClient, NULL, hFile);
 
 	delete[] pCMD;
 
@@ -216,7 +216,7 @@ int _tmain(int argc, _TCHAR* argv[])
 	//접속대기 소켓 생성
 	SOCKET hSocket = ::socket(AF_INET, SOCK_STREAM, 0);
 	if (hSocket == INVALID_SOCKET)
-		ErrorHandler("접속 대기 소켓을 생성할 수 없습니다.");
+		ErrorHandler("접속 대기 소켓을 생성할 수 없습니다.", hSocket);
 
 	//포트 바인딩
 	SOCKADDR_IN	svraddr = { 0 };
@@ -225,11 +225,11 @@ int _tmain(int argc, _TCHAR* argv[])
 	svraddr.sin_addr.S_un.S_addr = htonl(INADDR_ANY);
 	if (::bind(hSocket,
 		(SOCKADDR*)&svraddr, sizeof(svraddr)) == SOCKET_ERROR)
-		ErrorHandler("소켓에 IP주소와 포트를 바인드 할 수 없습니다.");
+		ErrorHandler("소켓에 IP주소와 포트를 바인드 할 수 없습니다.", hSocket);
 
 	//접속대기 상태로 전환
 	if (::listen(hSocket, SOMAXCONN) == SOCKET_ERROR)
-		ErrorHandler("리슨 상태로 전환할 수 없습니다.");
+		ErrorHandler("리슨 상태로 전환할 수 없습니다.", hSocket);
 	puts("파일송신서버를 시작합니다.");
 
 	//클라이언트 연결을 받아들이고 새로운 소켓 생성(개방)
@@ -238,7 +238,7 @@ int _tmain(int argc, _TCHAR* argv[])
 	SOCKET hClient = ::accept(hSocket,
 		(SOCKADDR*)&clientaddr, &nAddrLen);
 	if (hClient == INVALID_SOCKET)
-		ErrorHandler("클라이언트 통신 소켓을 생성할 수 없습니다.");
+		ErrorHandler("클라이언트 통신 소켓을 생성할 수 없습니다.", hSocket, hClient);
 	puts("클라이언트가 연결되었습니다.");
 
 	//클라이언트로부터 명령을 수신하고 대응하는 Event loop. -> 추후 룩업 테이블로 업데이트.
@@ -266,7 +266,7 @@ int _tmain(int argc, _TCHAR* argv[])
 			}
 
 		default:
-			ErrorHandler("알 수 없는 명령을 수신했습니다.");
+			ErrorHandler("알 수 없는 명령을 수신했습니다.", hSocket, hClient);
 			break;
 		}
 	}
