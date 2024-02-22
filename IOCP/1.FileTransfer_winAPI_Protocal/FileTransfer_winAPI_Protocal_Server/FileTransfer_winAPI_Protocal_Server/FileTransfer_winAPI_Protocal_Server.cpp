@@ -25,6 +25,7 @@ FILEINFO g_aFInfo[3] = {
 	{ 2, L"Maid with the Flaxen Hair.mp3", 4113874 }
 };
 std::vector<FILEINFO> g_vFInfo;
+int g_maxFileIndex = 0;
 
 /////////////////////////////////////////////////////////////////////////
 //언제든 에러가 나면 프로세스 종료.
@@ -81,7 +82,7 @@ void SendFile(SOCKET hClient, int index)
 	HEADER cmd;
 	ERROR_CODE err;
 	//파일 리스트에서 인덱스에 맞는 파일을 검사한다.
-	if (index < 0 || index > 2)
+	if (index < 0 || index > g_maxFileIndex)
 	{
 		cmd.cmdCode = CMD_ERROR;
 		cmd.dwSize = sizeof(err);
@@ -190,7 +191,7 @@ int _tmain(int argc, _TCHAR* argv[])
 	do {
 		// 파일이 디렉터리인지 확인
 		if (!(findFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) {
-			std::wcout << findFileData.cFileName << std::endl;
+			//std::wcout << findFileData.cFileName << std::endl;
 			FILEINFO file;
 			file.nIndex = index++;
 
@@ -204,6 +205,7 @@ int _tmain(int argc, _TCHAR* argv[])
 		}
 	} while (FindNextFile(hFind, &findFileData) != 0);
 
+	g_maxFileIndex = index - 1;
 	FindClose(hFind);
 	
 	g_flist.nCount = g_vFInfo.size();
@@ -247,7 +249,6 @@ int _tmain(int argc, _TCHAR* argv[])
 	{
 		/*unsigned int index = -1;
 		LOOKUP_TABLE[cmd.cmdCode](hClient, index);*/
-
 
 		switch (cmd.cmdCode)
 		{

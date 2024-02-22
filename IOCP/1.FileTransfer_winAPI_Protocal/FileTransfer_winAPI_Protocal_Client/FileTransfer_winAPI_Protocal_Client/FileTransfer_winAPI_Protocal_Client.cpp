@@ -76,6 +76,8 @@ void GetFile(SOCKET hSocket)
 		::recv(hSocket, (char*)&fInfo, cmd.dwSize, 0);
 
 	//3. 파일을 수신한다.
+	CreateDirectoryW(L"FileList", NULL);//폴더가 없을 경우, CreateFileW()가 실패하기 때문에 미리 생성.
+
 	printf("%ls 파일 수신을 시작합니다!\n", fInfo.szFileName);
 	HANDLE hFile = ::CreateFileW(
 		fInfo.szFileName,
